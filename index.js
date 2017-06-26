@@ -2,7 +2,7 @@
 const url = require('url')
 const qs = require('querystring')
 const EventEmitter = require('events').EventEmitter
-const request = require('request-promise')
+const request = require('request')
 const crypto = require('crypto')
 
 class Bot extends EventEmitter {
@@ -13,144 +13,140 @@ class Bot extends EventEmitter {
     if (!opts.token) {
       throw new Error('Missing page token. See FB documentation for details: https://developers.facebook.com/docs/messenger-platform/quickstart')
     }
+    this.graph_url = opts.graph_url ?  opts.graph_url  : "https://graph.facebook.com/v2.6/"
     this.token = opts.token
     this.app_secret = opts.app_secret || false
     this.verify_token = opts.verify || false
-    this.debug = opts.debug || false
   }
 
   getProfile (id, cb) {
-    return request({
+    if (!cb) cb = Function.prototype
+
+    request({
       method: 'GET',
-      uri: `https://graph.facebook.com/v2.6/${id}`,
-      qs: this._getQs({fields: 'first_name,last_name,profile_pic,locale,timezone,gender'}),
+      uri: `${this.graph_url}${id}`,
+      qs: {
+        fields: 'first_name,last_name,profile_pic,locale,timezone,gender',
+        access_token: this.token
+      },
       json: true
-    })
-    .then(body => {
-      if (body.error) return Promise.reject(body.error)
-      if (!cb) return body
+    }, (err, res, body) => {
+      if (err) return cb(err)
+      if (body.error) return cb(body.error)
+
       cb(null, body)
-    })
-    .catch(err => {
-      if (!cb) return Promise.reject(err)
-      cb(err)
     })
   }
 
   sendMessage (recipient, payload, cb) {
-    return request({
+    if (!cb) cb = Function.prototype
+
+    request({
       method: 'POST',
-      uri: 'https://graph.facebook.com/v2.6/me/messages',
-      qs: this._getQs(),
+      uri: this.graph_url+ '/me/messages',
+      qs: {
+        access_token: this.token
+      },
       json: {
         recipient: { id: recipient },
         message: payload
       }
-    })
-    .then(body => {
-      if (body.error) return Promise.reject(body.error)
-      if (!cb) return body
+    }, (err, res, body) => {
+      if (err) return cb(err)
+      if (body.error) return cb(body.error)
+
       cb(null, body)
-    })
-    .catch(err => {
-      if (!cb) return Promise.reject(err)
-      cb(err)
     })
   }
 
   sendSenderAction (recipient, senderAction, cb) {
-    return request({
+    if (!cb) cb = Function.prototype
+
+    request({
       method: 'POST',
-      uri: 'https://graph.facebook.com/v2.6/me/messages',
-      qs: this._getQs(),
+      uri: this.graph_url+ '/me/messages',
+      qs: {
+        access_token: this.token
+      },
       json: {
         recipient: {
           id: recipient
         },
         sender_action: senderAction
       }
-    })
-    .then(body => {
-      if (body.error) return Promise.reject(body.error)
-      if (!cb) return body
+    }, (err, res, body) => {
+      if (err) return cb(err)
+      if (body.error) return cb(body.error)
+
       cb(null, body)
-    })
-    .catch(err => {
-      if (!cb) return Promise.reject(err)
-      cb(err)
     })
   }
 
-  setField (field, payload, cb) {
-    return request({
+  setThreadSettings (threadState, callToActions, cb) {
+    if (!cb) cb = Function.prototype
+
+    request({
       method: 'POST',
-      uri: 'https://graph.facebook.com/v2.6/me/messenger_profile',
-      qs: this._getQs(),
+      uri: this.graph_url+ '/me/thread_settings',
+      qs: {
+        access_token: this.token
+      },
       json: {
-        [field]: payload
+        setting_type: 'call_to_actions',
+        thread_state: threadState,
+        call_to_actions: callToActions
       }
-    })
-    .then(body => {
-      if (body.error) return Promise.reject(body.error)
-      if (!cb) return body
+    }, (err, res, body) => {
+      if (err) return cb(err)
+      if (body.error) return cb(body.error)
+
       cb(null, body)
-    })
-    .catch(err => {
-      if (!cb) return Promise.reject(err)
-      cb(err)
     })
   }
 
-  deleteField (field, cb) {
-    return request({
+  removeThreadSettings (threadState, cb) {
+    if (!cb) cb = Function.prototype
+
+    request({
       method: 'DELETE',
-      uri: 'https://graph.facebook.com/v2.6/me/messenger_profile',
-      qs: this._getQs(),
+      uri: this.graph_url+ '/me/thread_settings',
+      qs: {
+        access_token: this.token
+      },
       json: {
-        fields: [field]
+        setting_type: 'call_to_actions',
+        thread_state: threadState
       }
-    })
-    .then(body => {
-      if (body.error) return Promise.reject(body.error)
-      if (!cb) return body
+    }, (err, res, body) => {
+      if (err) return cb(err)
+      if (body.error) return cb(body.error)
+
       cb(null, body)
-    })
-    .catch(err => {
-      if (!cb) return Promise.reject(err)
-      cb(err)
     })
   }
 
   setGetStartedButton (payload, cb) {
-    return this.setField('get_started', payload, cb)
+    if (!cb) cb = Function.prototype
+
+    return this.setThreadSettings('new_thread', payload, cb)
   }
 
   setPersistentMenu (payload, cb) {
-    return this.setField('persistent_menu', payload, cb)
-  }
+    if (!cb) cb = Function.prototype
 
-  setDomainWhitelist (payload, cb) {
-    return this.setField('whitelisted_domains', payload, cb)
-  }
-
-  setGreeting (payload, cb) {
-    return this.setField('greeting', payload, cb)
+    return this.setThreadSettings('existing_thread', payload, cb)
   }
 
   removeGetStartedButton (cb) {
-    return this.deleteField('get_started', cb)
+    if (!cb) cb = Function.prototype
+
+    return this.removeThreadSettings('new_thread', cb)
   }
 
   removePersistentMenu (cb) {
-    return this.deleteField('persistent_menu', cb)
-  }
+    if (!cb) cb = Function.prototype
 
-  removeDomainWhitelist (cb) {
-    return this.deleteField('whitelisted_domains', cb)
-  }
-
-  removeGreeting (cb) {
-    return this.deleteField('greeting', cb)
+    return this.removeThreadSettings('existing_thread', cb)
   }
 
   middleware () {
@@ -187,19 +183,6 @@ class Bot extends EventEmitter {
     }
   }
 
-  _getQs (qs) {
-    if (typeof qs === 'undefined') {
-      qs = {}
-    }
-    qs['access_token'] = this.token
-
-    if (this.debug) {
-      qs['debug'] = this.debug
-    }
-
-    return qs
-  }
-
   _handleMessage (json) {
     let entries = json.entry
 
@@ -234,11 +217,6 @@ class Bot extends EventEmitter {
         // handle authentication
         if (event.optin) {
           this._handleEvent('authentication', event)
-        }
-
-        // handle referrals (e.g. m.me links)
-        if (event.referral) {
-          this._handleEvent('referral', event)
         }
 
         // handle account_linking
