@@ -19,6 +19,18 @@ tap.test('basic initialization', (t) => {
   t.end()
 })
 
+
+tap.test('change graph_url initialization', (t) => {
+  let bot
+
+  t.doesNotThrow(() => { bot = new Bot({ token: 'foo', graph_url:'http://custom_graph_url.com/' }) }, 'creating bot does not throw')
+  t.type(bot, 'object', 'bot class is initiated correctly')
+  t.equals(bot.token, 'foo', 'bot token is stored correctly')
+  t.equals(bot.graph_url, 'http://custom_graph_url.com/', 'bot graph_url is stored correctly')
+ 
+  t.end()
+})
+
 tap.test('missing token paramater', (t) => {
   t.throws(() => new Bot(), 'bot without token specified should throw')
   t.end()
